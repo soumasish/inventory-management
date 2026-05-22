@@ -5,6 +5,48 @@
       <p>{{ t('orders.description') }}</p>
     </div>
 
+    <!-- Restocking Orders section — shown only when there are restocking orders -->
+    <div v-if="restockingOrders.length > 0" class="card restocking-card">
+      <div class="card-header">
+        <h3 class="card-title">Restocking Orders</h3>
+        <span class="badge warning">Processing</span>
+      </div>
+      <div class="table-container">
+        <table class="restocking-table">
+          <thead>
+            <tr>
+              <th class="col-order-number">Order Number</th>
+              <th class="col-items">Items</th>
+              <th class="col-value">Total Cost</th>
+              <th class="col-date">Order Date</th>
+              <th class="col-date">Expected Delivery</th>
+              <th class="col-lead">Lead Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="rOrder in restockingOrders" :key="rOrder.id">
+              <td class="col-order-number"><strong>{{ rOrder.order_number }}</strong></td>
+              <td class="col-items">
+                <details class="items-details">
+                  <summary class="items-summary">{{ rOrder.items.length }} item{{ rOrder.items.length !== 1 ? 's' : '' }}</summary>
+                  <div class="items-dropdown">
+                    <div v-for="item in rOrder.items" :key="item.sku" class="item-entry">
+                      <span class="item-name">{{ item.name }}</span>
+                      <span class="item-meta">Qty: {{ item.quantity.toLocaleString() }} @ ${{ item.unit_price.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</span>
+                    </div>
+                  </div>
+                </details>
+              </td>
+              <td class="col-value"><strong>${{ rOrder.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</strong></td>
+              <td class="col-date">{{ formatDate(rOrder.order_date) }}</td>
+              <td class="col-date">{{ formatDate(rOrder.expected_delivery) }}</td>
+              <td class="col-lead"><span class="lead-time">{{ rOrder.lead_time_days }} days</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <div v-if="loading" class="loading">{{ t('common.loading') }}</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else>
@@ -95,6 +137,7 @@ export default {
     const loading = ref(true)
     const error = ref(null)
     const orders = ref([])
+    const restockingOrders = ref([])
 
     // Use shared filters
     const {
@@ -121,6 +164,14 @@ export default {
         error.value = 'Failed to load orders: ' + err.message
       } finally {
         loading.value = false
+      }
+    }
+
+    const loadRestockingOrders = async () => {
+      try {
+        restockingOrders.value = await api.getRestockingOrders()
+      } catch (err) {
+        // Silently fail — restocking orders section just stays empty
       }
     }
 
@@ -153,13 +204,17 @@ export default {
       })
     }
 
-    onMounted(loadOrders)
+    onMounted(() => {
+      loadOrders()
+      loadRestockingOrders()
+    })
 
     return {
       t,
       loading,
       error,
       orders,
+      restockingOrders,
       getOrdersByStatus,
       getOrderStatusClass,
       formatDate,
@@ -275,5 +330,25 @@ export default {
 .item-meta {
   font-size: 0.813rem;
   color: #64748b;
+}
+
+/* Restocking Orders card */
+.restocking-card {
+  border-left: 4px solid #059669;
+}
+
+.restocking-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.col-lead {
+  width: 100px;
+}
+
+.lead-time {
+  font-size: 0.813rem;
+  color: #64748b;
+  font-weight: 500;
 }
 </style>
